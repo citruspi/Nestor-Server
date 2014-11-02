@@ -24,10 +24,10 @@ type User struct {
 }
 
 type Token struct {
-	Id        int64
-	UserId    int64
-	Token     string
-	Timestamp time.Time
+	Id        int64     `json:"id"`
+	UserId    int64     `json:"-"`
+	Token     string    `json:"token"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 func GenerateToken() string {
@@ -154,6 +154,49 @@ func postTokenCollection(c *gin.Context) {
 	}
 }
 
+func getTokenCollection(c *gin.Context) {
+	type Response struct {
+		Success bool    `json:"success"`
+		Error   string  `json:"error,omitempty"`
+		Tokens  []Token `json:"tokens"`
+	}
+
+	var resp Response
+
+	token := c.Request.FormValue("token")
+
+	if token == "" {
+		resp.Success = false
+		resp.Error = "Failed to authenticate with a token."
+
+		c.JSON(403, resp)
+	} else {
+		var count int
+
+		db.Model(Token{}).Where("token = ?", token).Count(&count)
+
+		if count == 0 {
+			resp.Success = false
+			resp.Error = "Token not found."
+
+			c.JSON(404, resp)
+		} else {
+			var tokenRecord Token
+
+			db.Model(Token{}).Where("token = ?", token).First(&tokenRecord)
+
+			var tokens []Token
+
+			db.Model(User{}).Where("user_id = ?", tokenRecord.UserId).Find(&tokens)
+
+			resp.Success = true
+			resp.Tokens = tokens
+
+			c.JSON(200, resp)
+		}
+	}
+}
+
 func main() {
 	r := gin.Default()
 
@@ -168,6 +211,7 @@ func main() {
 	db.CreateTable(Token{})
 
 	r.POST("/users/", postUserCollection)
+	r.GET("/tokens/", getTokenCollection)
 	r.POST("/tokens/", postTokenCollection)
 
 	r.Run(":8000")
