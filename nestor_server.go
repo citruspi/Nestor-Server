@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/jinzhu/gorm"
@@ -43,6 +44,16 @@ func postUserCollection(c *gin.Context) {
 		fmt.Println(count)
 
 		if count == 0 {
+			var hashedPassword []byte
+
+			hashedPassword, err = bcrypt.GenerateFromPassword([]byte(user.Password), 10)
+
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			user.Password = string(hashedPassword)
+
 			db.Create(&user)
 
 			resp.Success = true
