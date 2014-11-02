@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/dchest/uniuri"
@@ -23,9 +24,10 @@ type User struct {
 }
 
 type Token struct {
-	Id     int64
-	UserId int64
-	Token  string
+	Id        int64
+	UserId    int64
+	Token     string
+	Timestamp time.Time
 }
 
 func GenerateToken() string {
@@ -135,6 +137,7 @@ func postTokenCollection(c *gin.Context) {
 				var token Token
 
 				token.Token = contender
+				token.Timestamp = time.Now()
 
 				db.Create(&token)
 
