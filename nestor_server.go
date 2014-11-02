@@ -60,7 +60,7 @@ func postUserCollection(c *gin.Context) {
 func main() {
 	r := gin.Default()
 
-	db, err = gorm.Open("sqlite3", "nestor.db")
+	db, err = gorm.Open("sqlite3", "nestor_server.db")
 	if err != nil {
 		log.Fatal(err)
 	}
