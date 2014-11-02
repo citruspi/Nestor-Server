@@ -165,7 +165,7 @@ func getTokenCollection(c *gin.Context) {
 	type Response struct {
 		Success bool    `json:"success"`
 		Error   string  `json:"error,omitempty"`
-		Tokens  []Token `json:"tokens"`
+		Tokens  []Token `json:"tokens,omitempty"`
 	}
 
 	var resp Response
