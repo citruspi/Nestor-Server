@@ -32,9 +32,9 @@ type Token struct {
 }
 
 type Collection struct {
-	Id     int64
-	UserId int64
-	Name   string `form:"name" binding:"required"`
+	Id     int64  `json:"id"`
+	UserId int64  `json:"-"`
+	Name   string `form:"name" binding:"required" json:"name"`
 }
 
 func GenerateToken() string {
@@ -282,6 +282,49 @@ func postCollectionCollection(c *gin.Context) {
 	}
 }
 
+func getCollectionCollection(c *gin.Context) {
+	type Response struct {
+		Success     bool         `json:"success"`
+		Error       string       `json:"error,omitempty"`
+		Collections []Collection `json:"collections,omitempty"`
+	}
+
+	var resp Response
+
+	token := c.Request.FormValue("token")
+
+	if token == "" {
+		resp.Success = false
+		resp.Error = "Failed to authenticate with a token."
+
+		c.JSON(403, resp)
+	} else {
+		var count int
+
+		db.Model(Token{}).Where("token = ?", token).Count(&count)
+
+		if count == 0 {
+			resp.Success = false
+			resp.Error = "Token not found."
+
+			c.JSON(404, resp)
+		} else {
+			var tokenRecord Token
+
+			db.Model(Token{}).Where("token = ?", token).First(&tokenRecord)
+
+			var collections []Collection
+
+			db.Model(Collection{}).Where("user_id = ?", tokenRecord.UserId).Find(&collections)
+
+			resp.Success = true
+			resp.Collections = collections
+
+			c.JSON(200, resp)
+		}
+	}
+}
+
 func main() {
 	r := gin.Default()
 
@@ -299,6 +342,7 @@ func main() {
 	r.POST("/users/", postUserCollection)
 	r.GET("/tokens/", getTokenCollection)
 	r.POST("/tokens/", postTokenCollection)
+	r.GET("/collections/", getCollectionCollection)
 	r.POST("/collections/", postCollectionCollection)
 
 	r.Run(":8000")
