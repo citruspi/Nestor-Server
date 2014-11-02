@@ -17,10 +17,11 @@ var db gorm.DB
 var err error
 
 type User struct {
-	Id       int64
-	Username string `form:"username" binding:"required"`
-	Password string `form:"password" binding:"required"`
-	Tokens   []Token
+	Id          int64
+	Username    string `form:"username" binding:"required"`
+	Password    string `form:"password" binding:"required"`
+	Tokens      []Token
+	Collections []Collection
 }
 
 type Token struct {
@@ -28,6 +29,12 @@ type Token struct {
 	UserId    int64     `json:"-"`
 	Token     string    `json:"token"`
 	Timestamp time.Time `json:"timestamp"`
+}
+
+type Collection struct {
+	Id     int64
+	UserId int64
+	Name   string `form:"name" binding:"required"`
 }
 
 func GenerateToken() string {
@@ -197,6 +204,84 @@ func getTokenCollection(c *gin.Context) {
 	}
 }
 
+func postCollectionCollection(c *gin.Context) {
+	type Response struct {
+		Success bool   `json:"success"`
+		Error   string `json:"error,omitempty"`
+	}
+
+	var resp Response
+	var collection Collection
+
+	token := c.Request.FormValue("token")
+
+	if token == "" {
+		resp.Success = false
+		resp.Error = "Failed to authenticate with a token."
+
+		c.JSON(403, resp)
+	} else {
+		var count int
+
+		db.Model(Token{}).Where("token = ?", token).Count(&count)
+
+		if count == 0 {
+			resp.Success = false
+			resp.Error = "Token not found."
+
+			c.JSON(404, resp)
+		} else {
+
+			c.BindWith(&collection, binding.Form)
+
+			if collection.Name == "" {
+				resp.Success = false
+				resp.Error = "Incomplete form submission."
+
+				c.JSON(400, resp)
+			} else {
+				var tokenRecord Token
+
+				db.Model(Token{}).Where("token = ?", token).First(&tokenRecord)
+
+				var user User
+
+				db.Model(User{}).Where("id = ?", tokenRecord.UserId).First(&user)
+
+				var collections []Collection
+
+				db.Model(Collection{}).Where("user_id = ?", user.Id).Find(&collections)
+
+				duplicate := false
+
+				for _, item := range collections {
+					if item.Name == collection.Name {
+						duplicate = true
+						break
+					}
+				}
+
+				if duplicate {
+					resp.Success = false
+					resp.Error = fmt.Sprintf("A collection named '%s' already exists.", collection.Name)
+
+					c.JSON(409, resp)
+				} else {
+					db.Create(&collection)
+
+					user.Collections = append(user.Collections, collection)
+
+					db.Save(&user)
+
+					resp.Success = true
+
+					c.JSON(200, resp)
+				}
+			}
+		}
+	}
+}
+
 func main() {
 	r := gin.Default()
 
@@ -209,10 +294,12 @@ func main() {
 
 	db.CreateTable(User{})
 	db.CreateTable(Token{})
+	db.CreateTable(Collection{})
 
 	r.POST("/users/", postUserCollection)
 	r.GET("/tokens/", getTokenCollection)
 	r.POST("/tokens/", postTokenCollection)
+	r.POST("/collections/", postCollectionCollection)
 
 	r.Run(":8000")
 }
