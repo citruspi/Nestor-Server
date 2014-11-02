@@ -14,6 +14,7 @@ var db gorm.DB
 var err error
 
 type User struct {
+	Id       int64
 	Username string `form:"username" binding:"required"`
 	Password string `form:"password" binding:"required"`
 }
